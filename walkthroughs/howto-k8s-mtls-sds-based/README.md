@@ -57,7 +57,7 @@ Walk through uses built-in k8s node attestor([k8s_sat](https://github.com/spiffe
 ./deploy_spire.sh
 ```
 **Note:** You can also install sample SPIRE Server and Agent via helm. Please refer to [SPIRE Server](https://github.com/aws/eks-charts/tree/master/stable/appmesh-spire-server) and [SPIRE Agent](https://github.com/aws/eks-charts/tree/master/stable/appmesh-spire-agent) charts in EKS charts repository for instructions on how to install them. If you prefer to install SPIRE via the sample helm charts for this walkthrough then please make sure to set the SPIRE trust domain to `howto-k8s-mtls-sds-based.aws` (--set config.trustDomain=howto-k8s-mtls-sds-based.aws)  
-The following walkthrough is designed to work with spire version >= v0.12.0 and < v1.0.0 with default set to 0.12.0
+The following walkthrough is designed to work with SPIRE version >= v1.8.0
 
 Let's check if both SPIRE Server and Agent are up and running. You should see a SPIRE Agent up and running on every node on your cluster.
 
@@ -94,7 +94,8 @@ Let's go ahead and register the entries with SPIRE server.
 You should now be able to check the registered entries in the SPIRE Server
 
 ```bash
-kubectl exec -n spire spire-server-0 -- /opt/spire/bin/spire-server entry show
+SPIRE_SERVER_POD=$(kubectl get pod -n spire -l app=spire-server -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n spire $SPIRE_SERVER_POD -- /opt/spire/bin/spire-server entry show
 Found 4 entries
 Entry ID      : 20ab95a6-e988-4628-9191-cc7e24acdb84
 SPIFFE ID     : spiffe://howto-k8s-mtls-sds-based.aws/colorblue
@@ -198,7 +199,7 @@ virtualnode.appmesh.k8s.aws/red     arn:aws:appmesh:us-west-2:1111111111:mesh/ho
 Note: "1111111111" is a dummy Account ID. You should see your Accoount ID in place of "1111111111"
 ```
 
-Let's look at the spec for `front` Virtual Node that has `green`, `red` and `blue` as it's backends. In order to enable mTLS, we need to specify both the `certificate` and `validation` sections of the `tls` block. The `certificate` block under `tls` specifies the SDS secret name(SPIFFE ID that was assigned for this workload) of the `front` app and the `validation` block specifies trust domain that it is part of. TLS `mode` is set to `STRICT` which will only allow mTLS traffic. `mode` can be set to `PERMISSIVE` if you wish to allow both plaintext traffic and mutual mTLS traffic at the same time. Use `subjectAlternativeNames` section to list out any alternative names for the services.
+Let's look at the spec for `front` Virtual Node that has `green`, `red` and `blue` as it's backends. In order to enable mTLS, we need to specify both the `certificate` and `validation` sections of the `tls` block. The `certificate` block under `tls` specifies the SDS secret name(SPIFFE ID that was assigned for this workload) of the `front` app and the `validation` block specifies trust domain that it is part of. The `enforce` field is set to `true` which enforces mTLS for all backend connections. Use `subjectAlternativeNames` section to list out any alternative names for the services.
 
 ```
 apiVersion: appmesh.k8s.aws/v1beta2
@@ -229,7 +230,6 @@ spec:
     clientPolicy:
       tls:
         enforce: true
-        mode: STRICT
         certificate:
           sds:
             secretName: spiffe://howto-k8s-mtls-sds-based.aws/front
