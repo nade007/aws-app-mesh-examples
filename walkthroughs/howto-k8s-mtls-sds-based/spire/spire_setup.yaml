@@ -147,7 +147,7 @@ data:
     }
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: spire-server
   namespace: spire
@@ -158,6 +158,7 @@ spec:
   selector:
     matchLabels:
       app: spire-server
+  serviceName: spire-server
   template:
     metadata:
       namespace: spire
@@ -193,8 +194,16 @@ spec:
         - name: spire-config
           configMap:
             name: spire-server
-        - name: spire-data
-          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: spire-data
+        namespace: spire
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
